@@ -23,7 +23,7 @@ const styles = {
   td: { padding: "14px 16px", fontSize: "14px", borderBottom: "1px solid #f1f5f9", color: "#334155" }
 };
 
-// --- PÁGINA PRINCIPAL / LANDING SELECCIÓN DE PORTALES ---
+// --- PÁGINA PRINCIPAL ---
 function Home() {
   const navigate = useNavigate();
 
@@ -35,24 +35,21 @@ function Home() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
-        {/* Tarjeta Pacientes */}
-        <div style={{ ...styles.card, cursor: "pointer", transition: "transform 0.2s" }} onClick={() => navigate("/pacientes")}>
+        <div style={{ ...styles.card, cursor: "pointer" }} onClick={() => navigate("/pacientes")}>
           <div style={{ fontSize: "40px", marginBottom: "12px" }}>🧑‍🤝‍🧑</div>
           <h2 style={{ fontSize: "20px", color: "#0284c7", margin: "0 0 8px 0" }}>Portal Pacientes</h2>
           <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Consulta tus turnos agendados e indicaciones o recetas médicas.</p>
           <button style={styles.btnPrimary}>Ingresar como Paciente →</button>
         </div>
 
-        {/* Tarjeta Médicos */}
-        <div style={{ ...styles.card, cursor: "pointer", transition: "transform 0.2s" }} onClick={() => navigate("/medico")}>
+        <div style={{ ...styles.card, cursor: "pointer" }} onClick={() => navigate("/medico")}>
           <div style={{ fontSize: "40px", marginBottom: "12px" }}>👨‍⚕️</div>
           <h2 style={{ fontSize: "20px", color: "#0f172a", margin: "0 0 8px 0" }}>Panel Médico</h2>
           <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Atención de pacientes, recetas y diagnósticos en tiempo real.</p>
           <button style={styles.btnPrimary}>Acceso Profesionales 🔒</button>
         </div>
 
-        {/* Tarjeta Secretaría */}
-        <div style={{ ...styles.card, cursor: "pointer", transition: "transform 0.2s" }} onClick={() => navigate("/secretaria")}>
+        <div style={{ ...styles.card, cursor: "pointer" }} onClick={() => navigate("/secretaria")}>
           <div style={{ fontSize: "40px", marginBottom: "12px" }}>📋</div>
           <h2 style={{ fontSize: "20px", color: "#0f172a", margin: "0 0 8px 0" }}>Panel Secretaría</h2>
           <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Gestión de registros de pacientes y otorgamiento de citas.</p>
@@ -63,7 +60,7 @@ function Home() {
   );
 }
 
-// --- COMPONENTE DE LOGIN PARA STAFF ---
+// --- LOGIN ---
 function Login({ rol, onLogin }) {
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
@@ -239,14 +236,18 @@ function PortalMedico() {
   );
 }
 
-// --- PORTAL SECRETARÍA ---
+// --- PORTAL SECRETARÍA COMPLETO (AGREGAR, EDITAR, BORRAR) ---
 function PortalSecretaria() {
   const [autenticado, setAutenticado] = useState(false);
   const [pacientes, setPacientes] = useState([]);
+  
+  // Estado para Formulario de Paciente (Crear / Editar)
+  const [pacienteEditandoId, setPacienteEditandoId] = useState(null);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
 
+  // Estado para Citas
   const [citas, setCitas] = useState([]);
   const [pacienteId, setPacienteId] = useState("");
   const [fecha, setFecha] = useState("");
@@ -281,17 +282,49 @@ function PortalSecretaria() {
     }
   }, [autenticado]);
 
+  // Guardar o Editar Paciente
   const manejarSubmitPaciente = async (e) => {
     e.preventDefault();
-    await fetch(`${API_URL}/pacientes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre_completo: nombre, telefono, email }),
-    });
+    if (pacienteEditandoId) {
+      // Editar
+      await fetch(`${API_URL}/pacientes/${pacienteEditandoId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre_completo: nombre, telefono, email }),
+      });
+      setPacienteEditandoId(null);
+    } else {
+      // Crear Nuevo
+      await fetch(`${API_URL}/pacientes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre_completo: nombre, telefono, email }),
+      });
+    }
     setNombre(""); setTelefono(""); setEmail("");
     cargarPacientes();
   };
 
+  const iniciarEdicionPaciente = (p) => {
+    setPacienteEditandoId(p.id);
+    setNombre(p.nombre_completo);
+    setTelefono(p.telefono);
+    setEmail(p.email || "");
+  };
+
+  const cancelarEdicion = () => {
+    setPacienteEditandoId(null);
+    setNombre(""); setTelefono(""); setEmail("");
+  };
+
+  const eliminarPaciente = async (id) => {
+    if (window.confirm("¿Seguro que deseas eliminar este paciente?")) {
+      await fetch(`${API_URL}/pacientes/${id}`, { method: "DELETE" });
+      cargarPacientes();
+    }
+  };
+
+  // Guardar Cita
   const manejarSubmitCita = async (e) => {
     e.preventDefault();
     await fetch(`${API_URL}/citas`, {
@@ -315,17 +348,31 @@ function PortalSecretaria() {
         <button onClick={() => setAutenticado(false)} style={styles.btnDanger}>Cerrar Sesión</button>
       </div>
 
+      {/* FORMULARIOS DE REGISTRO / EDICIÓN Y AGENDAR CITA */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px", marginBottom: "32px" }}>
+        
+        {/* Formulario Registrar / Editar Paciente */}
         <div style={styles.card}>
-          <h3 style={{ margin: "0 0 16px 0" }}>👤 Registrar Nuevo Paciente</h3>
+          <h3 style={{ margin: "0 0 16px 0", color: pacienteEditandoId ? "#d97706" : "#0f172a" }}>
+            {pacienteEditandoId ? "✏️ Editar Paciente" : "👤 Registrar Nuevo Paciente"}
+          </h3>
           <form onSubmit={manejarSubmitPaciente} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <input type="text" placeholder="Nombre Completo" value={nombre} onChange={e => setNombre(e.target.value)} required style={styles.input} />
             <input type="tel" placeholder="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} required style={styles.input} />
             <input type="email" placeholder="Correo Electrónico" value={email} onChange={e => setEmail(e.target.value)} style={styles.input} />
-            <button type="submit" style={styles.btnPrimary}>+ Guardar Paciente</button>
+            
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button type="submit" style={pacienteEditandoId ? { ...styles.btnPrimary, backgroundColor: "#d97706" } : styles.btnPrimary}>
+                {pacienteEditandoId ? "Actualizar Datos" : "+ Guardar Paciente"}
+              </button>
+              {pacienteEditandoId && (
+                <button type="button" onClick={cancelarEdicion} style={{ ...styles.btnDanger, backgroundColor: "#64748b" }}>Cancelar</button>
+              )}
+            </div>
           </form>
         </div>
 
+        {/* Formulario Agendar Cita */}
         <div style={styles.card}>
           <h3 style={{ margin: "0 0 16px 0" }}>📅 Agendar Cita Médica</h3>
           <form onSubmit={manejarSubmitCita} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -342,8 +389,44 @@ function PortalSecretaria() {
             <button type="submit" style={styles.btnSuccess}>Confirmar Cita</button>
           </form>
         </div>
+
       </div>
 
+      {/* TABLA: DIRECTORIO DE PACIENTES REGISTRADOS */}
+      <div style={{ ...styles.card, marginBottom: "32px" }}>
+        <h3>📂 Directorio de Pacientes Carga/Edición</h3>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>ID</th>
+              <th style={styles.th}>NOMBRE COMPLETO</th>
+              <th style={styles.th}>TELÉFONO</th>
+              <th style={styles.th}>EMAIL</th>
+              <th style={styles.th}>ACCIONES</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pacientes.length === 0 ? (
+              <tr><td colSpan="5" style={{ ...styles.td, textAlign: "center", color: "#94a3b8" }}>No hay pacientes registrados aún.</td></tr>
+            ) : (
+              pacientes.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ ...styles.td, color: "#94a3b8" }}>#{p.id}</td>
+                  <td style={{ ...styles.td, fontWeight: "600" }}>{p.nombre_completo}</td>
+                  <td style={styles.td}>{p.telefono}</td>
+                  <td style={{ ...styles.td, color: "#64748b" }}>{p.email || "-"}</td>
+                  <td style={styles.td}>
+                    <button onClick={() => iniciarEdicionPaciente(p)} style={styles.btnSm("#d97706")}>✏️ Editar</button>
+                    <button onClick={() => eliminarPaciente(p.id)} style={styles.btnSm("#ef4444")}>🗑️ Borrar</button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* TABLA: AGENDA GLOBAL DE TURNOS */}
       <div style={styles.card}>
         <h3>📆 Agenda Global de Turnos</h3>
         <table style={styles.table}>
