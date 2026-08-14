@@ -1,34 +1,66 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 const API_URL = "https://api-medica.mafrancescones.workers.dev";
 
+// --- ESTILOS GENERALES Y COMPONENTES REUTILIZABLES ---
+const styles = {
+  container: { maxWidth: "1200px", margin: "0 auto", padding: "20px", fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: "#1e293b", backgroundColor: "#f8fafc", minHeight: "100vh" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", backgroundColor: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", marginBottom: "24px" },
+  logo: { fontSize: "20px", fontWeight: "700", color: "#0284c7", display: "flex", alignItems: "center", gap: "8px" },
+  nav: { display: "flex", gap: "8px" },
+  navLink: (active) => ({ textDecoration: "none", padding: "8px 16px", borderRadius: "8px", fontWeight: "600", fontSize: "14px", color: active ? "#0284c7" : "#64748b", backgroundColor: active ? "#e0f2fe" : "transparent", transition: "all 0.2s" }),
+  card: { backgroundColor: "#ffffff", padding: "24px", borderRadius: "16px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)", border: "1px solid #e2e8f0" },
+  input: { width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", outline: "none", boxSizing: "border-box" },
+  btnPrimary: { width: "100%", padding: "12px", backgroundColor: "#0284c7", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer", transition: "background 0.2s" },
+  btnSuccess: { width: "100%", padding: "12px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer" },
+  badge: (status) => ({ display: "inline-block", padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", backgroundColor: status === "Pendiente" ? "#fef3c7" : "#d1fae5", color: status === "Pendiente" ? "#d97706" : "#059669" }),
+  table: { width: "100%", borderCollapse: "separate", borderSpacing: "0", marginTop: "12px" },
+  th: { backgroundColor: "#f1f5f9", padding: "12px 16px", textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#475569", borderBottom: "1px solid #e2e8f0" },
+  td: { padding: "14px 16px", fontSize: "14px", borderBottom: "1px solid #f1f5f9", color: "#334155" }
+};
+
+function Navigation() {
+  const location = useLocation();
+  return (
+    <div style={styles.header}>
+      <div style={styles.logo}>
+        🏥 <span>MedControl Pro</span>
+      </div>
+      <nav style={styles.nav}>
+        <Link to="/" style={styles.navLink(location.pathname === "/")}>Inicio</Link>
+        <Link to="/paciente" style={styles.navLink(location.pathname === "/paciente")}>Pacientes</Link>
+        <Link to="/medico" style={styles.navLink(location.pathname === "/medico")}>Médicos</Link>
+        <Link to="/secretaria" style={styles.navLink(location.pathname === "/secretaria")}>Secretaría</Link>
+      </nav>
+    </div>
+  );
+}
+
 function PantallaPaciente() {
   return (
-    <div style={{ padding: "30px", fontFamily: "sans-serif" }}>
-      <h2>Portal del Paciente</h2>
-      <p>Próximamente: Reserva tu cita médica online.</p>
+    <div style={styles.card}>
+      <h2 style={{ margin: "0 0 10px 0", color: "#0f172a" }}>Portal del Paciente</h2>
+      <p style={{ color: "#64748b" }}>Próximamente: Consulta tus historias clínicas y próximas citas en tiempo real.</p>
     </div>
   );
 }
 
 function PantallaMedico() {
   return (
-    <div style={{ padding: "30px", fontFamily: "sans-serif" }}>
-      <h2>Panel del Médico</h2>
-      <p>Próximamente: Consulta tus citas del día.</p>
+    <div style={styles.card}>
+      <h2 style={{ margin: "0 0 10px 0", color: "#0f172a" }}>Panel del Médico</h2>
+      <p style={{ color: "#64748b" }}>Próximamente: Vista de pacientes del día con orden de llegada.</p>
     </div>
   );
 }
 
 function PantallaSecretaria() {
-  // Estados para Pacientes
   const [pacientes, setPacientes] = useState([]);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
 
-  // Estados para Citas
   const [citas, setCitas] = useState([]);
   const [pacienteId, setPacienteId] = useState("");
   const [fecha, setFecha] = useState("");
@@ -41,12 +73,10 @@ function PantallaSecretaria() {
       if (res.ok) {
         const data = await res.json();
         setPacientes(data);
-        if (data.length > 0 && !pacienteId) {
-          setPacienteId(data[0].id); // Seleccionar el primero por defecto
-        }
+        if (data.length > 0 && !pacienteId) setPacienteId(data[0].id);
       }
     } catch (err) {
-      console.error("Error al cargar pacientes:", err);
+      console.error(err);
     }
   };
 
@@ -58,7 +88,7 @@ function PantallaSecretaria() {
         setCitas(data);
       }
     } catch (err) {
-      console.error("Error al cargar citas:", err);
+      console.error(err);
     }
   };
 
@@ -67,137 +97,119 @@ function PantallaSecretaria() {
     cargarCitas();
   }, []);
 
-  // Guardar Paciente
   const manejarSubmitPaciente = async (e) => {
     e.preventDefault();
-    try {
-      await fetch(`${API_URL}/pacientes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre_completo: nombre, telefono, email }),
-      });
-      setNombre("");
-      setTelefono("");
-      setEmail("");
-      cargarPacientes();
-    } catch (err) {
-      console.error("Error al guardar paciente:", err);
-    }
+    await fetch(`${API_URL}/pacientes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre_completo: nombre, telefono, email }),
+    });
+    setNombre(""); setTelefono(""); setEmail("");
+    cargarPacientes();
   };
 
-  // Guardar Cita
   const manejarSubmitCita = async (e) => {
     e.preventDefault();
-    try {
-      await fetch(`${API_URL}/citas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paciente_id: pacienteId, fecha, hora, motivo }),
-      });
-      setFecha("");
-      setHora("");
-      setMotivo("");
-      cargarCitas();
-    } catch (err) {
-      console.error("Error al agendar cita:", err);
-    }
+    await fetch(`${API_URL}/citas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paciente_id: pacienteId, fecha, hora, motivo }),
+    });
+    setFecha(""); setHora(""); setMotivo("");
+    cargarCitas();
   };
 
   return (
-    <div style={{ padding: "30px", fontFamily: "sans-serif" }}>
-      <h2>Control de Secretaría</h2>
-
-      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", marginBottom: "30px" }}>
-        {/* Formulario Registrar Paciente */}
-        <div style={{ flex: "1", minWidth: "300px", padding: "20px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-          <h3>1. Registrar Nuevo Paciente</h3>
-          <form onSubmit={manejarSubmitPaciente} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <input type="text" placeholder="Nombre Completo" value={nombre} onChange={e => setNombre(e.target.value)} required style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} />
-            <input type="tel" placeholder="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} required style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} />
-            <input type="email" placeholder="Correo Electrónico" value={email} onChange={e => setEmail(e.target.value)} style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} />
-            <button type="submit" style={{ padding: "8px 16px", background: "#0369a1", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>Guardar Paciente</button>
+    <div>
+      {/* SECCIÓN SUPERIOR DE FORMULARIOS */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px", marginBottom: "32px" }}>
+        
+        {/* Card Registrar Paciente */}
+        <div style={styles.card}>
+          <h3 style={{ margin: "0 0 16px 0", color: "#0f172a", fontSize: "16px", fontWeight: "700" }}>👤 Registrar Paciente</h3>
+          <form onSubmit={manejarSubmitPaciente} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <input type="text" placeholder="Nombre Completo" value={nombre} onChange={e => setNombre(e.target.value)} required style={styles.input} />
+            <input type="tel" placeholder="Teléfono" value={telefono} onChange={e => setTelefono(e.target.value)} required style={styles.input} />
+            <input type="email" placeholder="Correo Electrónico" value={email} onChange={e => setEmail(e.target.value)} style={styles.input} />
+            <button type="submit" style={styles.btnPrimary}>+ Guardar Paciente</button>
           </form>
         </div>
 
-        {/* Formulario Agendar Cita */}
-        <div style={{ flex: "1", minWidth: "300px", padding: "20px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px" }}>
-          <h3>2. Agendar Cita Médica</h3>
-          <form onSubmit={manejarSubmitCita} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Paciente:</label>
-            <select value={pacienteId} onChange={e => setPacienteId(e.target.value)} required style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }}>
+        {/* Card Agendar Cita */}
+        <div style={styles.card}>
+          <h3 style={{ margin: "0 0 16px 0", color: "#0f172a", fontSize: "16px", fontWeight: "700" }}>📅 Agendar Cita Médica</h3>
+          <form onSubmit={manejarSubmitCita} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <select value={pacienteId} onChange={e => setPacienteId(e.target.value)} required style={styles.input}>
               {pacientes.map(p => (
                 <option key={p.id} value={p.id}>{p.nombre_completo} ({p.telefono})</option>
               ))}
             </select>
             <div style={{ display: "flex", gap: "10px" }}>
-              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required style={{ flex: 1, padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} />
-              <input type="time" value={hora} onChange={e => setHora(e.target.value)} required style={{ flex: 1, padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} />
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required style={styles.input} />
+              <input type="time" value={hora} onChange={e => setHora(e.target.value)} required style={styles.input} />
             </div>
-            <input type="text" placeholder="Motivo de consulta (ej. Chequeo general)" value={motivo} onChange={e => setMotivo(e.target.value)} required style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} />
-            <button type="submit" style={{ padding: "8px 16px", background: "#15803d", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>Agendar Cita</button>
+            <input type="text" placeholder="Motivo de consulta" value={motivo} onChange={e => setMotivo(e.target.value)} required style={styles.input} />
+            <button type="submit" style={styles.btnSuccess}>Confirmar Cita</button>
           </form>
         </div>
+
       </div>
 
-      {/* Tabla de Citas Agendadas */}
-      <h3>Agenda de Citas Médicas</h3>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "10px", border: "1px solid #cbd5e1", marginBottom: "40px" }}>
-        <thead>
-          <tr style={{ background: "#f1f5f9", textAlign: "left" }}>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>Fecha</th>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>Hora</th>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>Paciente</th>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>Motivo</th>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {citas.length === 0 ? (
+      {/* AGENDA DE CITAS */}
+      <div style={{ ...styles.card, marginBottom: "32px" }}>
+        <h3 style={{ margin: "0 0 16px 0", color: "#0f172a", fontSize: "18px" }}>📆 Agenda del Día y Próximos Turnos</h3>
+        <table style={styles.table}>
+          <thead>
             <tr>
-              <td colSpan="5" style={{ padding: "15px", textAlign: "center", color: "#64748b" }}>No hay citas agendadas aún.</td>
+              <th style={styles.th}>FECHA</th>
+              <th style={styles.th}>HORA</th>
+              <th style={styles.th}>PACIENTE</th>
+              <th style={styles.th}>MOTIVO</th>
+              <th style={styles.th}>ESTADO</th>
             </tr>
-          ) : (
-            citas.map((c) => (
-              <tr key={c.id}>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1" }}>{c.fecha}</td>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1" }}>{c.hora}</td>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1" }}><strong>{c.paciente}</strong></td>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1" }}>{c.motivo}</td>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1", color: "#0369a1", fontWeight: "bold" }}>{c.estado}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {citas.length === 0 ? (
+              <tr><td colSpan="5" style={{ ...styles.td, textAlign: "center", color: "#94a3b8" }}>No hay citas registradas.</td></tr>
+            ) : (
+              citas.map((c) => (
+                <tr key={c.id}>
+                  <td style={styles.td}>{c.fecha}</td>
+                  <td style={{ ...styles.td, fontWeight: "600" }}>{c.hora} hs</td>
+                  <td style={{ ...styles.td, fontWeight: "600", color: "#0284c7" }}>{c.paciente}</td>
+                  <td style={styles.td}>{c.motivo}</td>
+                  <td style={styles.td}><span style={styles.badge(c.estado)}>{c.estado}</span></td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Tabla de Pacientes */}
-      <h3>Lista de Pacientes Registrados</h3>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "10px", border: "1px solid #cbd5e1" }}>
-        <thead>
-          <tr style={{ background: "#f1f5f9", textAlign: "left" }}>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>ID</th>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>Nombre</th>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>Teléfono</th>
-            <th style={{ padding: "10px", border: "1px solid #cbd5e1" }}>Email</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pacientes.length === 0 ? (
+      {/* LISTA DE PACIENTES */}
+      <div style={styles.card}>
+        <h3 style={{ margin: "0 0 16px 0", color: "#0f172a", fontSize: "18px" }}>📋 Directorio de Pacientes</h3>
+        <table style={styles.table}>
+          <thead>
             <tr>
-              <td colSpan="4" style={{ padding: "15px", textAlign: "center", color: "#64748b" }}>Cargando pacientes desde la nube...</td>
+              <th style={styles.th}>ID</th>
+              <th style={styles.th}>NOMBRE COMPLETO</th>
+              <th style={styles.th}>TELÉFONO</th>
+              <th style={styles.th}>EMAIL</th>
             </tr>
-          ) : (
-            pacientes.map((p) => (
+          </thead>
+          <tbody>
+            {pacientes.map((p) => (
               <tr key={p.id}>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1" }}>{p.id}</td>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1" }}>{p.nombre_completo}</td>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1" }}>{p.telefono}</td>
-                <td style={{ padding: "10px", border: "1px solid #cbd5e1" }}>{p.email || "-"}</td>
+                <td style={{ ...styles.td, color: "#94a3b8" }}>#{p.id}</td>
+                <td style={{ ...styles.td, fontWeight: "600" }}>{p.nombre_completo}</td>
+                <td style={styles.td}>{p.telefono}</td>
+                <td style={{ ...styles.td, color: "#64748b" }}>{p.email || "-"}</td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -205,16 +217,15 @@ function PantallaSecretaria() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div style={{ fontFamily: "sans-serif" }}>
-        <nav style={{ padding: "15px", background: "#e0f2fe", borderBottom: "2px solid #bae6fd" }}>
-          <Link to="/" style={{ marginRight: "20px", textDecoration: "none", color: "#0369a1", fontWeight: "bold" }}>Inicio</Link>
-          <Link to="/paciente" style={{ marginRight: "20px", textDecoration: "none", color: "#0369a1", fontWeight: "bold" }}>Paciente</Link>
-          <Link to="/medico" style={{ marginRight: "20px", textDecoration: "none", color: "#0369a1", fontWeight: "bold" }}>Médico</Link>
-          <Link to="/secretaria" style={{ textDecoration: "none", color: "#0369a1", fontWeight: "bold" }}>Secretaría</Link>
-        </nav>
-
+      <div style={styles.container}>
+        <Navigation />
         <Routes>
-          <Route path="/" element={<h1 style={{ padding: "30px" }}>Bienvenido al Sistema Médico</h1>} />
+          <Route path="/" element={
+            <div style={{ ...styles.card, textAlign: "center", padding: "60px 20px" }}>
+              <h1 style={{ fontSize: "28px", color: "#0f172a", marginBottom: "12px" }}>Bienvenido a MedControl Pro 🏥</h1>
+              <p style={{ color: "#64748b", maxWidth: "500px", margin: "0 auto" }}>Sistema integral en la nube para la gestión de turnos médicos, agendas de secretaría y expedientes.</p>
+            </div>
+          } />
           <Route path="/paciente" element={<PantallaPaciente />} />
           <Route path="/medico" element={<PantallaMedico />} />
           <Route path="/secretaria" element={<PantallaSecretaria />} />
