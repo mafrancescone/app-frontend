@@ -1,15 +1,16 @@
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 const API_URL = "https://api-medica.mafrancescones.workers.dev";
 
 const styles = {
   container: { maxWidth: "1000px", margin: "0 auto", padding: "20px", fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: "#1e293b" },
-  card: { backgroundColor: "#ffffff", padding: "24px", borderRadius: "16px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)", border: "1px solid #e2e8f0" },
+  card: { backgroundColor: "#ffffff", padding: "28px", borderRadius: "16px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)", border: "1px solid #e2e8f0" },
   input: { width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", outline: "none", boxSizing: "border-box" },
   btnPrimary: { width: "100%", padding: "12px", backgroundColor: "#0284c7", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer" },
   btnSuccess: { width: "100%", padding: "12px", backgroundColor: "#10b981", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer" },
   btnDanger: { padding: "8px 16px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "600", cursor: "pointer" },
+  btnBack: { display: "inline-block", marginBottom: "16px", color: "#0284c7", textDecoration: "none", fontWeight: "600", fontSize: "14px" },
   btnSm: (bg) => ({ padding: "6px 12px", backgroundColor: bg, color: "#fff", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: "600", cursor: "pointer", marginRight: "6px" }),
   badge: (status) => {
     let bg = "#fef3c7"; let color = "#d97706";
@@ -21,6 +22,46 @@ const styles = {
   th: { backgroundColor: "#f1f5f9", padding: "12px 16px", textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#475569", borderBottom: "1px solid #e2e8f0" },
   td: { padding: "14px 16px", fontSize: "14px", borderBottom: "1px solid #f1f5f9", color: "#334155" }
 };
+
+// --- PÁGINA PRINCIPAL / LANDING SELECCIÓN DE PORTALES ---
+function Home() {
+  const navigate = useNavigate();
+
+  return (
+    <div style={{ ...styles.container, textAlign: "center", paddingTop: "40px" }}>
+      <div style={{ marginBottom: "40px" }}>
+        <h1 style={{ fontSize: "32px", color: "#0f172a", marginBottom: "10px" }}>🏥 MedControl Pro</h1>
+        <p style={{ color: "#64748b", fontSize: "16px" }}>Bienvenido al sistema de gestión médica. Selecciona tu tipo de usuario para ingresar:</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
+        {/* Tarjeta Pacientes */}
+        <div style={{ ...styles.card, cursor: "pointer", transition: "transform 0.2s" }} onClick={() => navigate("/pacientes")}>
+          <div style={{ fontSize: "40px", marginBottom: "12px" }}>🧑‍🤝‍🧑</div>
+          <h2 style={{ fontSize: "20px", color: "#0284c7", margin: "0 0 8px 0" }}>Portal Pacientes</h2>
+          <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Consulta tus turnos agendados e indicaciones o recetas médicas.</p>
+          <button style={styles.btnPrimary}>Ingresar como Paciente →</button>
+        </div>
+
+        {/* Tarjeta Médicos */}
+        <div style={{ ...styles.card, cursor: "pointer", transition: "transform 0.2s" }} onClick={() => navigate("/medico")}>
+          <div style={{ fontSize: "40px", marginBottom: "12px" }}>👨‍⚕️</div>
+          <h2 style={{ fontSize: "20px", color: "#0f172a", margin: "0 0 8px 0" }}>Panel Médico</h2>
+          <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Atención de pacientes, recetas y diagnósticos en tiempo real.</p>
+          <button style={styles.btnPrimary}>Acceso Profesionales 🔒</button>
+        </div>
+
+        {/* Tarjeta Secretaría */}
+        <div style={{ ...styles.card, cursor: "pointer", transition: "transform 0.2s" }} onClick={() => navigate("/secretaria")}>
+          <div style={{ fontSize: "40px", marginBottom: "12px" }}>📋</div>
+          <h2 style={{ fontSize: "20px", color: "#0f172a", margin: "0 0 8px 0" }}>Panel Secretaría</h2>
+          <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Gestión de registros de pacientes y otorgamiento de citas.</p>
+          <button style={styles.btnPrimary}>Acceso Secretaría 🔒</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // --- COMPONENTE DE LOGIN PARA STAFF ---
 function Login({ rol, onLogin }) {
@@ -47,7 +88,8 @@ function Login({ rol, onLogin }) {
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "80px auto" }}>
+    <div style={{ maxWidth: "400px", margin: "60px auto" }}>
+      <Link to="/" style={styles.btnBack}>← Volver al Menú Principal</Link>
       <div style={styles.card}>
         <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
           🔒 Acceso {rol === "medico" ? "Médico" : "Secretaría"}
@@ -63,7 +105,7 @@ function Login({ rol, onLogin }) {
   );
 }
 
-// --- PORTAL PACIENTES (LINK PÚBLICO/PACIENTES) ---
+// --- PORTAL PACIENTES ---
 function PortalPacientes() {
   const [citas, setCitas] = useState([]);
   const [busqueda, setBusqueda] = useState("");
@@ -76,6 +118,7 @@ function PortalPacientes() {
 
   return (
     <div style={styles.container}>
+      <Link to="/" style={styles.btnBack}>← Volver al Menú Principal</Link>
       <div style={styles.card}>
         <h2 style={{ margin: "0 0 10px 0", color: "#0284c7" }}>🏥 Portal de Consulta de Pacientes</h2>
         <p style={{ color: "#64748b", marginBottom: "20px" }}>Ingresa tu Nombre Completo para consultar tus turnos e indicaciones médicas:</p>
@@ -115,7 +158,7 @@ function PortalPacientes() {
   );
 }
 
-// --- PORTAL MÉRICO (REQUIERE CONTRASEÑA) ---
+// --- PORTAL MÉDICO ---
 function PortalMedico() {
   const [autenticado, setAutenticado] = useState(false);
   const [citas, setCitas] = useState([]);
@@ -148,7 +191,10 @@ function PortalMedico() {
   return (
     <div style={styles.container}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-        <h2>👨‍⚕️ Panel de Atención Médica</h2>
+        <div>
+          <Link to="/" style={styles.btnBack}>← Menú Principal</Link>
+          <h2 style={{ margin: 0 }}>👨‍⚕️ Panel de Atención Médica</h2>
+        </div>
         <button onClick={() => setAutenticado(false)} style={styles.btnDanger}>Cerrar Sesión</button>
       </div>
 
@@ -193,7 +239,7 @@ function PortalMedico() {
   );
 }
 
-// --- PORTAL SECRETARÍA (REQUIERE CONTRASEÑA) ---
+// --- PORTAL SECRETARÍA ---
 function PortalSecretaria() {
   const [autenticado, setAutenticado] = useState(false);
   const [pacientes, setPacientes] = useState([]);
@@ -262,7 +308,10 @@ function PortalSecretaria() {
   return (
     <div style={styles.container}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-        <h2>📋 Panel de Gestión de Secretaría</h2>
+        <div>
+          <Link to="/" style={styles.btnBack}>← Menú Principal</Link>
+          <h2 style={{ margin: 0 }}>📋 Panel de Gestión de Secretaría</h2>
+        </div>
         <button onClick={() => setAutenticado(false)} style={styles.btnDanger}>Cerrar Sesión</button>
       </div>
 
@@ -328,15 +377,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Home />} />
         <Route path="/pacientes" element={<PortalPacientes />} />
         <Route path="/medico" element={<PortalMedico />} />
         <Route path="/secretaria" element={<PortalSecretaria />} />
-        <Route path="*" element={
-          <div style={{ textAlign: "center", padding: "100px 20px", fontFamily: "sans-serif" }}>
-            <h1>Acceso al Sistema Médico 🏥</h1>
-            <p style={{ color: "#64748b" }}>Ingresa directamente mediante el enlace proporcionado por la clínica.</p>
-          </div>
-        } />
       </Routes>
     </BrowserRouter>
   );
