@@ -23,7 +23,25 @@ const styles = {
   td: { padding: "14px 16px", fontSize: "14px", borderBottom: "1px solid #f1f5f9", color: "#334155" }
 };
 
-// --- PÁGINA PRINCIPAL ---
+// Función auxiliar para generar rangos de hora (ej. 09:00, 09:30...)
+function generarSlotsHoras(inicio, fin, pasoMin) {
+  const slots = [];
+  let [hInicio, mInicio] = inicio.split(":").map(Number);
+  let [hFin, mFin] = fin.split(":").map(Number);
+
+  let actual = hInicio * 60 + mInicio;
+  const limite = hFin * 60 + mFin;
+
+  while (actual < limite) {
+    let hh = Math.floor(actual / 60).toString().padStart(2, "0");
+    let mm = (actual % 60).toString().padStart(2, "0");
+    slots.push(`${hh}:${mm}`);
+    actual += pasoMin;
+  }
+  return slots;
+}
+
+// --- HOME ---
 function Home() {
   const navigate = useNavigate();
 
@@ -45,7 +63,7 @@ function Home() {
         <div style={{ ...styles.card, cursor: "pointer" }} onClick={() => navigate("/medico")}>
           <div style={{ fontSize: "40px", marginBottom: "12px" }}>👨‍⚕️</div>
           <h2 style={{ fontSize: "20px", color: "#0f172a", margin: "0 0 8px 0" }}>Panel Médico</h2>
-          <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Atención de pacientes, recetas y diagnósticos en tiempo real.</p>
+          <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Atención de pacientes, configuración de horarios y recetas.</p>
           <button style={styles.btnPrimary}>Acceso Profesionales 🔒</button>
         </div>
 
@@ -155,11 +173,16 @@ function PortalPacientes() {
   );
 }
 
-// --- PORTAL MÉDICO ---
+// --- PORTAL MÉDICO (CON CONFIGURACIÓN DE DISPONIBILIDAD) ---
 function PortalMedico() {
   const [autenticado, setAutenticado] = useState(false);
   const [citas, setCitas] = useState([]);
   const [notaTexto, setNotaTexto] = useState({});
+
+  // Configuración de Horarios
+  const [horaInicio, setHoraInicio] = useState("09:00");
+  const [horaFin, setHoraFin] = useState("17:00");
+  const [duracion, setDuracion] = useState(30);
 
   const cargarCitas = async () => {
     try {
@@ -171,7 +194,24 @@ function PortalMedico() {
     } catch (err) { console.error(err); }
   };
 
-  useEffect(() => { if (autenticado) cargarCitas(); }, [autenticado]);
+  const cargarDisponibilidad = async () => {
+    try {
+      const res = await fetch(`${API_URL}/disponibilidad`);
+      if (res.ok) {
+        const data = await res.json();
+        setHoraInicio(data.hora_inicio || "09:00");
+        setHoraFin(data.hora_fin || "17:00");
+        setDuracion(data.duracion_minutos || 30);
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  useEffect(() => { 
+    if (autenticado) {
+      cargarCitas(); 
+      cargarDisponibilidad();
+    }
+  }, [autenticado]);
 
   const actualizarCita = async (id, estadoActual) => {
     const notas = notaTexto[id] !== undefined ? notaTexto[id] : "";
@@ -181,6 +221,16 @@ function PortalMedico() {
       body: JSON.stringify({ estado: estadoActual, notas }),
     });
     cargarCitas();
+  };
+
+  const guardarHorarios = async (e) => {
+    e.preventDefault();
+    await fetch(`${API_URL}/disponibilidad`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hora_inicio: horaInicio, hora_fin: horaFin, duracion_minutos: parseInt(duracion) }),
+    });
+    alert("Horarios de atención actualizados con éxito");
   };
 
   if (!autenticado) return <Login rol="medico" onLogin={() => setAutenticado(true)} />;
@@ -193,6 +243,28 @@ function PortalMedico() {
           <h2 style={{ margin: 0 }}>👨‍⚕️ Panel de Atención Médica</h2>
         </div>
         <button onClick={() => setAutenticado(false)} style={styles.btnDanger}>Cerrar Sesión</button>
+      </div>
+
+      {/* CONFIGURACIÓN DE DISPONIBILIDAD */}
+      <div style={{ ...styles.card, marginBottom: "24px", background: "#f8fafc" }}>
+        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px" }}>⚙️ Configurar Jornada de Atención</h3>
+        <form onSubmit={guardarHorarios} style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ fontSize: "13px" }}>Hora Inicio:</label>
+          <input type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} required style={{ ...styles.input, width: "130px" }} />
+          
+          <label style={{ fontSize: "13px" }}>Hora Fin:</label>
+          <input type="time" value={horaFin} onChange={e => setHoraFin(e.target.value)} required style={{ ...styles.input, width: "130px" }} />
+
+          <label style={{ fontSize: "13px" }}>Duración por turno:</label>
+          <select value={duracion} onChange={e => setDuracion(e.target.value)} style={{ ...styles.input, width: "140px" }}>
+            <option value={15}>15 minutos</option>
+            <option value={20}>20 minutos</option>
+            <option value={30}>30 minutos</option>
+            <option value={60}>60 minutos</option>
+          </select>
+
+          <button type="submit" style={{ ...styles.btnPrimary, width: "auto", padding: "10px 20px" }}>Guardar Horarios</button>
+        </form>
       </div>
 
       <div style={styles.card}>
@@ -236,23 +308,24 @@ function PortalMedico() {
   );
 }
 
-// --- PORTAL SECRETARÍA COMPLETO (AGREGAR, EDITAR, BORRAR) ---
+// --- PORTAL SECRETARÍA (CON CALENDARIO Y SLOTS DE HORARIOS LIBRES/OCUPADOS) ---
 function PortalSecretaria() {
   const [autenticado, setAutenticado] = useState(false);
   const [pacientes, setPacientes] = useState([]);
   
-  // Estado para Formulario de Paciente (Crear / Editar)
   const [pacienteEditandoId, setPacienteEditandoId] = useState(null);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
 
-  // Estado para Citas
   const [citas, setCitas] = useState([]);
   const [pacienteId, setPacienteId] = useState("");
-  const [fecha, setFecha] = useState("");
+  const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
   const [hora, setHora] = useState("");
   const [motivo, setMotivo] = useState("");
+
+  // Configuración de Slots del día
+  const [config, setConfig] = useState({ hora_inicio: "09:00", hora_fin: "17:00", duracion_minutos: 30 });
 
   const cargarPacientes = async () => {
     try {
@@ -275,18 +348,27 @@ function PortalSecretaria() {
     } catch (err) { console.error(err); }
   };
 
+  const cargarDisponibilidad = async () => {
+    try {
+      const res = await fetch(`${API_URL}/disponibilidad`);
+      if (res.ok) {
+        const data = await res.json();
+        setConfig(data);
+      }
+    } catch (err) { console.error(err); }
+  };
+
   useEffect(() => {
     if (autenticado) {
       cargarPacientes();
       cargarCitas();
+      cargarDisponibilidad();
     }
   }, [autenticado]);
 
-  // Guardar o Editar Paciente
   const manejarSubmitPaciente = async (e) => {
     e.preventDefault();
     if (pacienteEditandoId) {
-      // Editar
       await fetch(`${API_URL}/pacientes/${pacienteEditandoId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -294,7 +376,6 @@ function PortalSecretaria() {
       });
       setPacienteEditandoId(null);
     } else {
-      // Crear Nuevo
       await fetch(`${API_URL}/pacientes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -312,11 +393,6 @@ function PortalSecretaria() {
     setEmail(p.email || "");
   };
 
-  const cancelarEdicion = () => {
-    setPacienteEditandoId(null);
-    setNombre(""); setTelefono(""); setEmail("");
-  };
-
   const eliminarPaciente = async (id) => {
     if (window.confirm("¿Seguro que deseas eliminar este paciente?")) {
       await fetch(`${API_URL}/pacientes/${id}`, { method: "DELETE" });
@@ -324,19 +400,33 @@ function PortalSecretaria() {
     }
   };
 
-  // Guardar Cita
   const manejarSubmitCita = async (e) => {
     e.preventDefault();
-    await fetch(`${API_URL}/citas`, {
+    if (!hora) {
+      alert("Por favor selecciona un horario disponible.");
+      return;
+    }
+    const res = await fetch(`${API_URL}/citas`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paciente_id: pacienteId, fecha, hora, motivo }),
     });
-    setFecha(""); setHora(""); setMotivo("");
-    cargarCitas();
+
+    if (res.ok) {
+      setHora(""); setMotivo("");
+      cargarCitas();
+    } else {
+      const data = await res.json();
+      alert(data.message || "Error al agendar cita");
+    }
   };
 
   if (!autenticado) return <Login rol="secretaria" onLogin={() => setAutenticado(true)} />;
+
+  // Generar lista de horas del día
+  const slotsGenerados = generarSlotsHoras(config.hora_inicio || "09:00", config.hora_fin || "17:00", config.duracion_minutos || 30);
+  // Horarios ya ocupados en la fecha seleccionada
+  const horasOcupadas = citas.filter(c => c.fecha === fecha && c.estado !== "Cancelada").map(c => c.hora);
 
   return (
     <div style={styles.container}>
@@ -348,7 +438,6 @@ function PortalSecretaria() {
         <button onClick={() => setAutenticado(false)} style={styles.btnDanger}>Cerrar Sesión</button>
       </div>
 
-      {/* FORMULARIOS DE REGISTRO / EDICIÓN Y AGENDAR CITA */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px", marginBottom: "32px" }}>
         
         {/* Formulario Registrar / Editar Paciente */}
@@ -366,33 +455,62 @@ function PortalSecretaria() {
                 {pacienteEditandoId ? "Actualizar Datos" : "+ Guardar Paciente"}
               </button>
               {pacienteEditandoId && (
-                <button type="button" onClick={cancelarEdicion} style={{ ...styles.btnDanger, backgroundColor: "#64748b" }}>Cancelar</button>
+                <button type="button" onClick={() => { setPacienteEditandoId(null); setNombre(""); setTelefono(""); setEmail(""); }} style={{ ...styles.btnDanger, backgroundColor: "#64748b" }}>Cancelar</button>
               )}
             </div>
           </form>
         </div>
 
-        {/* Formulario Agendar Cita */}
+        {/* Formulario Agendar Cita con Calendario + Slots */}
         <div style={styles.card}>
           <h3 style={{ margin: "0 0 16px 0" }}>📅 Agendar Cita Médica</h3>
           <form onSubmit={manejarSubmitCita} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Paciente:</label>
             <select value={pacienteId} onChange={e => setPacienteId(e.target.value)} required style={styles.input}>
               {pacientes.map(p => (
                 <option key={p.id} value={p.id}>{p.nombre_completo} ({p.telefono})</option>
               ))}
             </select>
-            <div style={{ display: "flex", gap: "10px" }}>
-              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} required style={styles.input} />
-              <input type="time" value={hora} onChange={e => setHora(e.target.value)} required style={styles.input} />
+
+            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Fecha de Cita:</label>
+            <input type="date" value={fecha} onChange={e => { setFecha(e.target.value); setHora(""); }} required style={styles.input} />
+
+            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Seleccionar Horario Disponible:</label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: "6px", maxHeight: "140px", overflowY: "auto", padding: "6px", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+              {slotsGenerados.map(slot => {
+                const ocupado = horasOcupadas.includes(slot);
+                const seleccionado = hora === slot;
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    disabled={ocupado}
+                    onClick={() => setHora(slot)}
+                    style={{
+                      padding: "6px 2px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      borderRadius: "6px",
+                      border: "none",
+                      cursor: ocupado ? "not-allowed" : "pointer",
+                      backgroundColor: ocupado ? "#fee2e2" : seleccionado ? "#0284c7" : "#e0f2fe",
+                      color: ocupado ? "#ef4444" : seleccionado ? "#fff" : "#0284c7"
+                    }}
+                  >
+                    {slot} {ocupado ? "✕" : ""}
+                  </button>
+                );
+              })}
             </div>
+
             <input type="text" placeholder="Motivo de consulta" value={motivo} onChange={e => setMotivo(e.target.value)} required style={styles.input} />
-            <button type="submit" style={styles.btnSuccess}>Confirmar Cita</button>
+            <button type="submit" style={styles.btnSuccess}>Confirmar Cita ({hora || "Seleccionar hora"})</button>
           </form>
         </div>
 
       </div>
 
-      {/* TABLA: DIRECTORIO DE PACIENTES REGISTRADOS */}
+      {/* TABLA: DIRECTORIO DE PACIENTES */}
       <div style={{ ...styles.card, marginBottom: "32px" }}>
         <h3>📂 Directorio de Pacientes Carga/Edición</h3>
         <table style={styles.table}>
@@ -406,22 +524,18 @@ function PortalSecretaria() {
             </tr>
           </thead>
           <tbody>
-            {pacientes.length === 0 ? (
-              <tr><td colSpan="5" style={{ ...styles.td, textAlign: "center", color: "#94a3b8" }}>No hay pacientes registrados aún.</td></tr>
-            ) : (
-              pacientes.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ ...styles.td, color: "#94a3b8" }}>#{p.id}</td>
-                  <td style={{ ...styles.td, fontWeight: "600" }}>{p.nombre_completo}</td>
-                  <td style={styles.td}>{p.telefono}</td>
-                  <td style={{ ...styles.td, color: "#64748b" }}>{p.email || "-"}</td>
-                  <td style={styles.td}>
-                    <button onClick={() => iniciarEdicionPaciente(p)} style={styles.btnSm("#d97706")}>✏️ Editar</button>
-                    <button onClick={() => eliminarPaciente(p.id)} style={styles.btnSm("#ef4444")}>🗑️ Borrar</button>
-                  </td>
-                </tr>
-              ))
-            )}
+            {pacientes.map((p) => (
+              <tr key={p.id}>
+                <td style={{ ...styles.td, color: "#94a3b8" }}>#{p.id}</td>
+                <td style={{ ...styles.td, fontWeight: "600" }}>{p.nombre_completo}</td>
+                <td style={styles.td}>{p.telefono}</td>
+                <td style={{ ...styles.td, color: "#64748b" }}>{p.email || "-"}</td>
+                <td style={styles.td}>
+                  <button onClick={() => iniciarEdicionPaciente(p)} style={styles.btnSm("#d97706")}>✏️ Editar</button>
+                  <button onClick={() => eliminarPaciente(p.id)} style={styles.btnSm("#ef4444")}>🗑️ Borrar</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
