@@ -58,7 +58,10 @@ function Home() {
   return (
     <div style={{ ...styles.container, textAlign: "center", paddingTop: "40px" }}>
       <div style={{ marginBottom: "40px" }}>
-        <h1 style={{ fontSize: "32px", color: "#0f172a", marginBottom: "10px" }}>🏥 MedControl Pro</h1>
+        <h1 style={{ fontSize: "32px", color: "#0f172a", marginBottom: "4px" }}>🏥 MedControl Pro</h1>
+        <p style={{ fontSize: "20px", color: "#0284c7", fontWeight: "700", marginTop: "0", marginBottom: "16px" }}>
+          Doc. Matias Delgado
+        </p>
         <p style={{ color: "#64748b", fontSize: "16px" }}>Bienvenido al sistema de gestión médica. Selecciona tu tipo de usuario para ingresar:</p>
       </div>
 
@@ -145,7 +148,8 @@ function PortalPacientes() {
     <div style={styles.container}>
       <Link to="/" style={styles.btnBack}>← Volver al Menú Principal</Link>
       <div style={styles.card}>
-        <h2 style={{ margin: "0 0 10px 0", color: "#0284c7" }}>🏥 Portal de Consulta de Pacientes</h2>
+        <h2 style={{ margin: "0 0 4px 0", color: "#0284c7" }}>🏥 Portal de Consulta de Pacientes</h2>
+        <p style={{ fontSize: "16px", color: "#0f172a", fontWeight: "600", marginTop: "0", marginBottom: "16px" }}>Doc. Matias Delgado</p>
         <p style={{ color: "#64748b", marginBottom: "20px" }}>Ingresa tu Nombre Completo para consultar tus turnos e indicaciones médicas:</p>
         
         <input type="text" placeholder="Ej. Maxi" value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ ...styles.input, marginBottom: "20px" }} />
@@ -183,7 +187,7 @@ function PortalPacientes() {
   );
 }
 
-// --- PORTAL MÉDICO (CONFIGURACIÓN SEMANAL DETALLADA) ---
+// --- PORTAL MÉDICO ---
 function PortalMedico() {
   const [autenticado, setAutenticado] = useState(false);
   const [citas, setCitas] = useState([]);
@@ -249,11 +253,11 @@ function PortalMedico() {
         <div>
           <Link to="/" style={styles.btnBack}>← Menú Principal</Link>
           <h2 style={{ margin: 0 }}>👨‍⚕️ Panel de Atención Médica</h2>
+          <small style={{ color: "#0284c7", fontWeight: "bold" }}>Doc. Matias Delgado</small>
         </div>
         <button onClick={() => setAutenticado(false)} style={styles.btnDanger}>Cerrar Sesión</button>
       </div>
 
-      {/* CONFIGURACIÓN SEMANAL DE HORARIOS */}
       <div style={{ ...styles.card, marginBottom: "24px", background: "#f8fafc" }}>
         <h3 style={{ margin: "0 0 16px 0", fontSize: "16px" }}>⚙️ Configurar Disponibilidad Semanal</h3>
         <form onSubmit={guardarHorariosSemanales}>
@@ -331,7 +335,7 @@ function PortalMedico() {
   );
 }
 
-// --- PORTAL SECRETARÍA (CON FECHAS FUTURAS + DISPONIBILIDAD POR DÍA) ---
+// --- PORTAL SECRETARÍA ---
 function PortalSecretaria() {
   const [autenticado, setAutenticado] = useState(false);
   const [pacientes, setPacientes] = useState([]);
@@ -445,7 +449,6 @@ function PortalSecretaria() {
 
   if (!autenticado) return <Login rol="secretaria" onLogin={() => setAutenticado(true)} />;
 
-  // Calcular el día de la semana para la fecha elegida
   const fechaPartes = fecha.split("-");
   const fechaObj = new Date(parseInt(fechaPartes[0]), parseInt(fechaPartes[1]) - 1, parseInt(fechaPartes[2]));
   const numDiaSemana = fechaObj.getDay();
@@ -464,6 +467,7 @@ function PortalSecretaria() {
         <div>
           <Link to="/" style={styles.btnBack}>← Menú Principal</Link>
           <h2 style={{ margin: 0 }}>📋 Panel de Gestión de Secretaría</h2>
+          <small style={{ color: "#0284c7", fontWeight: "bold" }}>Doc. Matias Delgado</small>
         </div>
         <button onClick={() => setAutenticado(false)} style={styles.btnDanger}>Cerrar Sesión</button>
       </div>
