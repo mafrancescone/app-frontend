@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 
 const API_URL = "https://api-medica.mafrancescones.workers.dev";
 
+const NOMBRES_DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
 const styles = {
   container: { maxWidth: "1000px", margin: "0 auto", padding: "20px", fontFamily: "'Inter', system-ui, -apple-system, sans-serif", color: "#1e293b" },
   card: { backgroundColor: "#ffffff", padding: "28px", borderRadius: "16px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)", border: "1px solid #e2e8f0" },
@@ -23,8 +25,8 @@ const styles = {
   td: { padding: "14px 16px", fontSize: "14px", borderBottom: "1px solid #f1f5f9", color: "#334155" }
 };
 
-// Función auxiliar para generar rangos de hora (ej. 09:00, 09:30...)
 function generarSlotsHoras(inicio, fin, pasoMin) {
+  if (!inicio || !fin) return [];
   const slots = [];
   let [hInicio, mInicio] = inicio.split(":").map(Number);
   let [hFin, mFin] = fin.split(":").map(Number);
@@ -39,6 +41,14 @@ function generarSlotsHoras(inicio, fin, pasoMin) {
     actual += pasoMin;
   }
   return slots;
+}
+
+function getFechaHoyFormateada() {
+  const hoy = new Date();
+  const yyyy = hoy.getFullYear();
+  const mm = String(hoy.getMonth() + 1).padStart(2, "0");
+  const dd = String(hoy.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 // --- HOME ---
@@ -63,7 +73,7 @@ function Home() {
         <div style={{ ...styles.card, cursor: "pointer" }} onClick={() => navigate("/medico")}>
           <div style={{ fontSize: "40px", marginBottom: "12px" }}>👨‍⚕️</div>
           <h2 style={{ fontSize: "20px", color: "#0f172a", margin: "0 0 8px 0" }}>Panel Médico</h2>
-          <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Atención de pacientes, configuración de horarios y recetas.</p>
+          <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 20px 0" }}>Atención de pacientes, configuración de horarios semanales y recetas.</p>
           <button style={styles.btnPrimary}>Acceso Profesionales 🔒</button>
         </div>
 
@@ -173,16 +183,12 @@ function PortalPacientes() {
   );
 }
 
-// --- PORTAL MÉDICO (CON CONFIGURACIÓN DE DISPONIBILIDAD) ---
+// --- PORTAL MÉDICO (CONFIGURACIÓN SEMANAL DETALLADA) ---
 function PortalMedico() {
   const [autenticado, setAutenticado] = useState(false);
   const [citas, setCitas] = useState([]);
   const [notaTexto, setNotaTexto] = useState({});
-
-  // Configuración de Horarios
-  const [horaInicio, setHoraInicio] = useState("09:00");
-  const [horaFin, setHoraFin] = useState("17:00");
-  const [duracion, setDuracion] = useState(30);
+  const [horariosDias, setHorariosDias] = useState([]);
 
   const cargarCitas = async () => {
     try {
@@ -194,14 +200,12 @@ function PortalMedico() {
     } catch (err) { console.error(err); }
   };
 
-  const cargarDisponibilidad = async () => {
+  const cargarHorariosDias = async () => {
     try {
-      const res = await fetch(`${API_URL}/disponibilidad`);
+      const res = await fetch(`${API_URL}/horarios-dias`);
       if (res.ok) {
         const data = await res.json();
-        setHoraInicio(data.hora_inicio || "09:00");
-        setHoraFin(data.hora_fin || "17:00");
-        setDuracion(data.duracion_minutos || 30);
+        setHorariosDias(data);
       }
     } catch (err) { console.error(err); }
   };
@@ -209,7 +213,7 @@ function PortalMedico() {
   useEffect(() => { 
     if (autenticado) {
       cargarCitas(); 
-      cargarDisponibilidad();
+      cargarHorariosDias();
     }
   }, [autenticado]);
 
@@ -223,14 +227,18 @@ function PortalMedico() {
     cargarCitas();
   };
 
-  const guardarHorarios = async (e) => {
+  const manejarCambioHorario = (diaSemana, campo, valor) => {
+    setHorariosDias(prev => prev.map(item => item.dia_semana === diaSemana ? { ...item, [campo]: valor } : item));
+  };
+
+  const guardarHorariosSemanales = async (e) => {
     e.preventDefault();
-    await fetch(`${API_URL}/disponibilidad`, {
+    await fetch(`${API_URL}/horarios-dias`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hora_inicio: horaInicio, hora_fin: horaFin, duracion_minutos: parseInt(duracion) }),
+      body: JSON.stringify(horariosDias),
     });
-    alert("Horarios de atención actualizados con éxito");
+    alert("¡Configuración semanal de horarios actualizada con éxito!");
   };
 
   if (!autenticado) return <Login rol="medico" onLogin={() => setAutenticado(true)} />;
@@ -245,25 +253,40 @@ function PortalMedico() {
         <button onClick={() => setAutenticado(false)} style={styles.btnDanger}>Cerrar Sesión</button>
       </div>
 
-      {/* CONFIGURACIÓN DE DISPONIBILIDAD */}
+      {/* CONFIGURACIÓN SEMANAL DE HORARIOS */}
       <div style={{ ...styles.card, marginBottom: "24px", background: "#f8fafc" }}>
-        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px" }}>⚙️ Configurar Jornada de Atención</h3>
-        <form onSubmit={guardarHorarios} style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-          <label style={{ fontSize: "13px" }}>Hora Inicio:</label>
-          <input type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} required style={{ ...styles.input, width: "130px" }} />
-          
-          <label style={{ fontSize: "13px" }}>Hora Fin:</label>
-          <input type="time" value={horaFin} onChange={e => setHoraFin(e.target.value)} required style={{ ...styles.input, width: "130px" }} />
+        <h3 style={{ margin: "0 0 16px 0", fontSize: "16px" }}>⚙️ Configurar Disponibilidad Semanal</h3>
+        <form onSubmit={guardarHorariosSemanales}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+            {horariosDias.map(h => (
+              <div key={h.dia_semana} style={{ display: "flex", alignItems: "center", gap: "12px", background: "#fff", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                <span style={{ width: "90px", fontWeight: "bold", fontSize: "13px" }}>{NOMBRES_DIAS[h.dia_semana]}:</span>
+                
+                <label style={{ fontSize: "13px", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <input type="checkbox" checked={!!h.atiende} onChange={e => manejarCambioHorario(h.dia_semana, "atiende", e.target.checked)} />
+                  Atiende
+                </label>
 
-          <label style={{ fontSize: "13px" }}>Duración por turno:</label>
-          <select value={duracion} onChange={e => setDuracion(e.target.value)} style={{ ...styles.input, width: "140px" }}>
-            <option value={15}>15 minutos</option>
-            <option value={20}>20 minutos</option>
-            <option value={30}>30 minutos</option>
-            <option value={60}>60 minutos</option>
-          </select>
-
-          <button type="submit" style={{ ...styles.btnPrimary, width: "auto", padding: "10px 20px" }}>Guardar Horarios</button>
+                {h.atiende ? (
+                  <>
+                    <input type="time" value={h.hora_inicio} onChange={e => manejarCambioHorario(h.dia_semana, "hora_inicio", e.target.value)} style={{ ...styles.input, width: "110px", padding: "4px 8px" }} />
+                    <span style={{ fontSize: "12px" }}>a</span>
+                    <input type="time" value={h.hora_fin} onChange={e => manejarCambioHorario(h.dia_semana, "hora_fin", e.target.value)} style={{ ...styles.input, width: "110px", padding: "4px 8px" }} />
+                    
+                    <select value={h.duracion_minutos} onChange={e => manejarCambioHorario(h.dia_semana, "duracion_minutos", e.target.value)} style={{ ...styles.input, width: "130px", padding: "4px 8px" }}>
+                      <option value={15}>15 min/turno</option>
+                      <option value={20}>20 min/turno</option>
+                      <option value={30}>30 min/turno</option>
+                      <option value={60}>60 min/turno</option>
+                    </select>
+                  </>
+                ) : (
+                  <span style={{ fontSize: "13px", color: "#94a3b8", fontStyle: "italic" }}>Día no laboral / Sin atención</span>
+                )}
+              </div>
+            ))}
+          </div>
+          <button type="submit" style={{ ...styles.btnPrimary, width: "auto", padding: "10px 24px" }}>Guardar Agenda Semanal</button>
         </form>
       </div>
 
@@ -308,7 +331,7 @@ function PortalMedico() {
   );
 }
 
-// --- PORTAL SECRETARÍA (CON CALENDARIO Y SLOTS DE HORARIOS LIBRES/OCUPADOS) ---
+// --- PORTAL SECRETARÍA (CON FECHAS FUTURAS + DISPONIBILIDAD POR DÍA) ---
 function PortalSecretaria() {
   const [autenticado, setAutenticado] = useState(false);
   const [pacientes, setPacientes] = useState([]);
@@ -320,12 +343,11 @@ function PortalSecretaria() {
 
   const [citas, setCitas] = useState([]);
   const [pacienteId, setPacienteId] = useState("");
-  const [fecha, setFecha] = useState(new Date().toISOString().split("T")[0]);
+  const [fecha, setFecha] = useState(getFechaHoyFormateada());
   const [hora, setHora] = useState("");
   const [motivo, setMotivo] = useState("");
 
-  // Configuración de Slots del día
-  const [config, setConfig] = useState({ hora_inicio: "09:00", hora_fin: "17:00", duracion_minutos: 30 });
+  const [horariosDias, setHorariosDias] = useState([]);
 
   const cargarPacientes = async () => {
     try {
@@ -348,12 +370,12 @@ function PortalSecretaria() {
     } catch (err) { console.error(err); }
   };
 
-  const cargarDisponibilidad = async () => {
+  const cargarHorariosDias = async () => {
     try {
-      const res = await fetch(`${API_URL}/disponibilidad`);
+      const res = await fetch(`${API_URL}/horarios-dias`);
       if (res.ok) {
         const data = await res.json();
-        setConfig(data);
+        setHorariosDias(data);
       }
     } catch (err) { console.error(err); }
   };
@@ -362,7 +384,7 @@ function PortalSecretaria() {
     if (autenticado) {
       cargarPacientes();
       cargarCitas();
-      cargarDisponibilidad();
+      cargarHorariosDias();
     }
   }, [autenticado]);
 
@@ -423,9 +445,17 @@ function PortalSecretaria() {
 
   if (!autenticado) return <Login rol="secretaria" onLogin={() => setAutenticado(true)} />;
 
-  // Generar lista de horas del día
-  const slotsGenerados = generarSlotsHoras(config.hora_inicio || "09:00", config.hora_fin || "17:00", config.duracion_minutos || 30);
-  // Horarios ya ocupados en la fecha seleccionada
+  // Calcular el día de la semana para la fecha elegida
+  const fechaPartes = fecha.split("-");
+  const fechaObj = new Date(parseInt(fechaPartes[0]), parseInt(fechaPartes[1]) - 1, parseInt(fechaPartes[2]));
+  const numDiaSemana = fechaObj.getDay();
+
+  const configDiaActual = horariosDias.find(h => h.dia_semana === numDiaSemana) || { atiende: 1, hora_inicio: "09:00", hora_fin: "17:00", duracion_minutos: 30 };
+
+  const slotsGenerados = configDiaActual.atiende 
+    ? generarSlotsHoras(configDiaActual.hora_inicio, configDiaActual.hora_fin, configDiaActual.duracion_minutos)
+    : [];
+
   const horasOcupadas = citas.filter(c => c.fecha === fecha && c.estado !== "Cancelada").map(c => c.hora);
 
   return (
@@ -461,7 +491,7 @@ function PortalSecretaria() {
           </form>
         </div>
 
-        {/* Formulario Agendar Cita con Calendario + Slots */}
+        {/* Formulario Agendar Cita */}
         <div style={styles.card}>
           <h3 style={{ margin: "0 0 16px 0" }}>📅 Agendar Cita Médica</h3>
           <form onSubmit={manejarSubmitCita} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -472,45 +502,63 @@ function PortalSecretaria() {
               ))}
             </select>
 
-            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Fecha de Cita:</label>
-            <input type="date" value={fecha} onChange={e => { setFecha(e.target.value); setHora(""); }} required style={styles.input} />
+            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Fecha de Cita (Solo Fechas Futuras):</label>
+            <input 
+              type="date" 
+              value={fecha} 
+              min={getFechaHoyFormateada()} 
+              onChange={e => { setFecha(e.target.value); setHora(""); }} 
+              required 
+              style={styles.input} 
+            />
 
-            <label style={{ fontSize: "12px", fontWeight: "bold" }}>Seleccionar Horario Disponible:</label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: "6px", maxHeight: "140px", overflowY: "auto", padding: "6px", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-              {slotsGenerados.map(slot => {
-                const ocupado = horasOcupadas.includes(slot);
-                const seleccionado = hora === slot;
-                return (
-                  <button
-                    key={slot}
-                    type="button"
-                    disabled={ocupado}
-                    onClick={() => setHora(slot)}
-                    style={{
-                      padding: "6px 2px",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      borderRadius: "6px",
-                      border: "none",
-                      cursor: ocupado ? "not-allowed" : "pointer",
-                      backgroundColor: ocupado ? "#fee2e2" : seleccionado ? "#0284c7" : "#e0f2fe",
-                      color: ocupado ? "#ef4444" : seleccionado ? "#fff" : "#0284c7"
-                    }}
-                  >
-                    {slot} {ocupado ? "✕" : ""}
-                  </button>
-                );
-              })}
-            </div>
+            <label style={{ fontSize: "12px", fontWeight: "bold" }}>
+              Horarios ({NOMBRES_DIAS[numDiaSemana]}):
+            </label>
+
+            {!configDiaActual.atiende ? (
+              <div style={{ padding: "12px", backgroundColor: "#fee2e2", color: "#dc2626", borderRadius: "8px", fontSize: "13px", fontWeight: "600" }}>
+                🚫 El médico no atiende los días {NOMBRES_DIAS[numDiaSemana]}. Por favor elige otra fecha.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: "6px", maxHeight: "140px", overflowY: "auto", padding: "6px", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
+                {slotsGenerados.map(slot => {
+                  const ocupado = horasOcupadas.includes(slot);
+                  const seleccionado = hora === slot;
+                  return (
+                    <button
+                      key={slot}
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => setHora(slot)}
+                      style={{
+                        padding: "6px 2px",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        borderRadius: "6px",
+                        border: "none",
+                        cursor: ocupado ? "not-allowed" : "pointer",
+                        backgroundColor: ocupado ? "#fee2e2" : seleccionado ? "#0284c7" : "#e0f2fe",
+                        color: ocupado ? "#ef4444" : seleccionado ? "#fff" : "#0284c7"
+                      }}
+                    >
+                      {slot} {ocupado ? "✕" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <input type="text" placeholder="Motivo de consulta" value={motivo} onChange={e => setMotivo(e.target.value)} required style={styles.input} />
-            <button type="submit" style={styles.btnSuccess}>Confirmar Cita ({hora || "Seleccionar hora"})</button>
+            <button type="submit" disabled={!configDiaActual.atiende} style={configDiaActual.atiende ? styles.btnSuccess : { ...styles.btnSuccess, backgroundColor: "#cbd5e1", cursor: "not-allowed" }}>
+              Confirmar Cita ({hora || "Seleccionar hora"})
+            </button>
           </form>
         </div>
 
       </div>
 
-      {/* TABLA: DIRECTORIO DE PACIENTES */}
+      {/* TABLA PACIENTES */}
       <div style={{ ...styles.card, marginBottom: "32px" }}>
         <h3>📂 Directorio de Pacientes Carga/Edición</h3>
         <table style={styles.table}>
@@ -540,7 +588,7 @@ function PortalSecretaria() {
         </table>
       </div>
 
-      {/* TABLA: AGENDA GLOBAL DE TURNOS */}
+      {/* TABLA TURNOS */}
       <div style={styles.card}>
         <h3>📆 Agenda Global de Turnos</h3>
         <table style={styles.table}>
