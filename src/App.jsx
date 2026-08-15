@@ -51,17 +51,105 @@ function getFechaHoyFormateada() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// --- BOTÓN / INSTRUCTIVO DE INSTALACIÓN PWA ---
+function BotonInstalarPWA() {
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [esIOS, setEsIOS] = useState(false);
+  const [mostrarModalIOS, setMostrarModalIOS] = useState(false);
+
+  useEffect(() => {
+    // Detectar si es dispositivo iOS (iPhone / iPad)
+    const isIosDevice = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    setEsIOS(isIosDevice);
+
+    // Capturar evento de instalación nativa (Android/Chrome)
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+  }, []);
+
+  const manejarClickInstalar = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => setDeferredPrompt(null));
+    } else if (esIOS) {
+      setMostrarModalIOS(true);
+    } else {
+      alert("Para instalar la aplicación, abre el menú de tu navegador y selecciona 'Agregar a la pantalla de inicio'.");
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: "24px" }}>
+      <button 
+        onClick={manejarClickInstalar}
+        style={{
+          backgroundColor: "#0f172a",
+          color: "#ffffff",
+          border: "none",
+          padding: "10px 20px",
+          borderRadius: "30px",
+          fontWeight: "600",
+          fontSize: "14px",
+          cursor: "pointer",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px"
+        }}
+      >
+        📲 Instalar App en Celular
+      </button>
+
+      {/* MODAL INSTRUCTIVO IPHONE (IOS) */}
+      {mostrarModalIOS && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: "20px"
+        }}>
+          <div style={{ ...styles.card, maxWidth: "420px", textAlign: "left", position: "relative" }}>
+            <h3 style={{ margin: "0 0 12px 0", color: "#0284c7" }}>📱 Cómo instalar en iPhone:</h3>
+            <ol style={{ paddingLeft: "20px", fontSize: "14px", lineHeight: "1.6", color: "#334155" }}>
+              <li style={{ marginBottom: "8px" }}>Toca el botón <strong>Compartir</strong> en la barra inferior de Safari (ícono del cuadrado con flecha hacia arriba ⎋).</li>
+              <li style={{ marginBottom: "8px" }}>Desplázate hacia abajo en la lista de opciones.</li>
+              <li style={{ marginBottom: "8px" }}>Selecciona <strong>"Agregar al inicio"</strong> (Add to Home Screen ➕).</li>
+              <li>¡Listo! Se creará el ícono en tu pantalla de inicio.</li>
+            </ol>
+            <button 
+              onClick={() => setMostrarModalIOS(false)} 
+              style={{ ...styles.btnPrimary, marginTop: "16px" }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- HOME ---
 function Home() {
   const navigate = useNavigate();
 
   return (
     <div style={{ ...styles.container, textAlign: "center", paddingTop: "40px" }}>
-      <div style={{ marginBottom: "40px" }}>
+      <div style={{ marginBottom: "20px" }}>
         <h1 style={{ fontSize: "32px", color: "#0f172a", marginBottom: "4px" }}>🏥 MedControl Pro</h1>
         <p style={{ fontSize: "20px", color: "#0284c7", fontWeight: "700", marginTop: "0", marginBottom: "16px" }}>
           Doc. Matias Delgado
         </p>
+        <BotonInstalarPWA />
         <p style={{ color: "#64748b", fontSize: "16px" }}>Bienvenido al sistema de gestión médica. Selecciona tu tipo de usuario para ingresar:</p>
       </div>
 
